@@ -9,7 +9,24 @@ import (
 	"strings"
 )
 
-func GetData (stopUid int) gjson.Result {
+func GetStops () gjson.Result {
+	resp, err := grequests.Get("http://webservices.ivb.at/smiapi/1.0/Stops", nil)
+
+	if err != nil {
+		log.Fatalln("Unable to make request: ", err)
+	}
+
+	data := resp.String()
+	data = strings.Replace(data, "\\", "", -1)
+
+	if !gjson.Valid(data) {
+		log.Fatalln("invalid json")
+	}
+
+	return gjson.Parse(data).Get("#.stop")
+}
+
+func GetSmartinfo (stopUid int) gjson.Result {
 	resp, err := grequests.Post("http://webservices.ivb.at/smiapi/1.0/Passage/?stopUid=" +  strconv.Itoa(stopUid), nil)
 
 	if err != nil {
