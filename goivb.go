@@ -7,6 +7,9 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
+	"os"
+	"os/exec"
 )
 
 func GetStops () gjson.Result {
@@ -72,3 +75,14 @@ func FPrint(parser gjson.Result, num int) {
 
 	fmt.Printf(rowSep)
 }
+
+func Watchdog(stopUid int, sleep float64) {
+	clearOut, _ := exec.Command("clear").Output()
+	for true {
+		smi := GetSmartinfo(stopUid)	
+		os.Stdout.Write(clearOut)	
+		FPrint(smi, 5)
+		time.Sleep(time.Duration(sleep) * time.Second)
+	}
+}
+
