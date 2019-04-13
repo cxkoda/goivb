@@ -76,17 +76,20 @@ func FPrint(parser gjson.Result, num int) {
 	fmt.Printf(rowSep)
 }
 
+
 var directionMaps = map[string]map[string]string {
+	//←↑→↓
 	"Höttinger Auffahrt": map[string]string{
-		"Rum Sanatorium": "←",
-		"J. Kerschb. Str.": "←",
-		"J.-Kerschbaumer-Straße": "←",
-		"Peerhofsiedlung": "→",
-		"Technik West": "→",
-		"Schützenstraße":"→",
-		"Flughafen": "→",
-		"Term. Marktplatz":"←",
-		"Terminal Marktplatz": "←"}}
+		"Sadrach": "<-",
+		"Rum Sanatorium": "<-",
+		"J. Kerschb. Str.": "<-",
+		"J.-Kerschbaumer-Straße": "<-",
+		"Peerhofsiedlung": "->",
+		"Technik West": "->",
+		"Schützenstraße":"->",
+		"Flughafen": "->",
+		"Term. Marktplatz":"<-",
+		"Terminal Marktplatz": "<-"}}
 
 func RpiPrint(parser gjson.Result, num int) {
 	directionMap := directionMaps[parser.Get("#.stopidname").Get("0").String()]
@@ -105,7 +108,7 @@ func RpiPrint(parser gjson.Result, num int) {
 		time := value.Get("time").String()
 		time = strings.Replace(time, " min", "\"", -1)
 
-		fmt.Printf("%2v %-2v %-3v \n", value.Get("route"), direction, time)
+		fmt.Printf("%2v %v %-3v \n", value.Get("route"), direction, time)
 		return true // keep iterating
 	})
 }
