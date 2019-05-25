@@ -13,27 +13,32 @@ import (
 	"os/exec"
 )
 
-// to change the flags on the default logger
+// use an own logger
 var glog = log.New(os.Stderr, "", log.LstdFlags | log.Lshortfile)
 
-type GoivbConfig struct {
-	StopHost string `toml:"StopHost"`
-	PassageHost string `toml:"PassageHost"`
-}
 
-type WatchdogConfig struct {
-	StopUid int `toml:"StopUid"`
-	Sleep float64 `toml:"Sleep"`
-}
-
+// General config struct for the toml parser 
 type TomlConfig struct {
 	Goivb GoivbConfig `toml:"goivb"`
 	Watchdogs map[string]WatchdogConfig `toml:"watchdog"`
 	IsSet bool
 }
 
+// Goivb config struct for the toml parser 
+type GoivbConfig struct {
+	StopHost string `toml:"StopHost"`
+	SmartinfoHost string `toml:"SmartinfoHost"`
+}
+
+// Watchdog config struct for the toml parser 
+type WatchdogConfig struct {
+	StopUid int `toml:"StopUid"`
+	Sleep float64 `toml:"Sleep"`
+}
+
 var Config TomlConfig
 
+// Reads the host url's and some other configurations from a toml file
 func init ()  {
 
 	if _, err := os.Stat("/etc/goivb.toml"); err == nil {	  
@@ -58,36 +63,36 @@ func init ()  {
 }
 
 
-type GoivbStops gjson.Result
-type GoivbSmi gjson.Result
+//type Stops gjson.Result
+type Smartinfo gjson.Result
 
-func GetStops () gjson.Result {
-	if !Config.IsSet {
-		glog.Fatalln("Goivb Configuration not set")
-	}
+// func GetStops () Stops {
+// 	if !Config.IsSet {
+// 		glog.Fatalln("Goivb Configuration not set")
+// 	}
 
-	resp, err := grequests.Get(Config.Goivb.StopHost, nil)
+// 	resp, err := grequests.Get(Config.Goivb.StopHost, nil)
 
-	if err != nil {
-		glog.Fatalln("Unable to make request: ", err)
-	}
+// 	if err != nil {
+// 		glog.Fatalln("Unable to make request: ", err)
+// 	}
 
-	data := resp.String()
-	data = strings.Replace(data, "\\", "", -1)
+// 	data := resp.String()
+// 	data = strings.Replace(data, "\\", "", -1)
 
-	if !gjson.Valid(data) {
-		glog.Fatalln("invalid json")
-	}
+// 	if !gjson.Valid(data) {
+// 		glog.Fatalln("invalid json")
+// 	}
 
-	return gjson.Parse(data).Get("#.stop")
-}
+// 	return Stops(gjson.Parse(data).Get("#.stop"))
+// }
 
 func GetSmartinfo (stopUid int) gjson.Result {
 	if !Config.IsSet {
 		glog.Fatalln("Goivb Configuration not set")
 	}
 
-	resp, err := grequests.Post(Config.Goivb.PassageHost + "/?stopUid=" +  strconv.Itoa(stopUid), nil)
+	resp, err := grequests.Post(Config.Goivb.SmartinfoHost + "/?stopUid=" +  strconv.Itoa(stopUid), nil)
 
 	if err != nil {
 		glog.Fatalln("Unable to make request: ", err)
@@ -106,12 +111,20 @@ func GetSmartinfo (stopUid int) gjson.Result {
 	return gjson.Parse(data)
 }
 
-func Printall(parser gjson.Result) {
-	parser.ForEach(func(key, value gjson.Result) bool {
+type gjsonIterable interface {
+	ForEach(func(key, value gjson.Result) bool)
+}
+
+func Printall(iter gjsonIterable) {
+	iter.ForEach(func(key, value gjson.Result) bool {
 		fmt.Println(value.String())
 		return true // keep iterating
 	})
 }
+
+// func (stops Stops) ForEach(iterator func(key, value gjson.Result) bool) {
+// 	gjson.Result(stops).ForEach(iterator)
+// }
 
 func FPrint(parser gjson.Result, num int) {
 	rowSep := "|---------------------------------------------|\n"
@@ -149,7 +162,8 @@ var directionMaps = map[string]map[string]string {
 		"Terminal Marktplatz": "< ",
 		"Kajetan-Sweth-Straße": "< ",
 		"Technik": " >",
-		"Ibk. Hauptbahnhof": "< "}}
+		"Ibk. Hauptbahnhof": "< ",
+		"Landesmuseum": "<"}}
 
 func RpiPrint(parser gjson.Result, num int) {
 	directionMap := directionMaps[parser.Get("#.stopidname").Get("0").String()]
