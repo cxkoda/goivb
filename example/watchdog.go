@@ -2,8 +2,10 @@ package main
 
 import (
 	"github.com/cxkoda/goivb"
+	"os"
 )
 
+
 func main() {
-	goivb.Watchdog(61549, 5) // Höttinger Auffahrt
+	goivb.Watchdog(os.Args[1])
 }

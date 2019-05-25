@@ -1,0 +1,7 @@
+[goivb]
+StopHost = "http://webservices.ivb.at/smiapi/1.0/Stops"
+PassageHost = "http://webservices.ivb.at/smiapi/1.0/Passage"
+
+[watchdog.1]
+StopUid = 61549 
+Sleep = 5.0

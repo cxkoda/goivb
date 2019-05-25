@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/levigross/grequests"
 	"github.com/tidwall/gjson"
+	"github.com/BurntSushi/toml"
 	"log"
 	"strconv"
 	"strings"
@@ -12,38 +13,94 @@ import (
 	"os/exec"
 )
 
+// to change the flags on the default logger
+var glog = log.New(os.Stderr, "", log.LstdFlags | log.Lshortfile)
+
+type GoivbConfig struct {
+	StopHost string `toml:"StopHost"`
+	PassageHost string `toml:"PassageHost"`
+}
+
+type WatchdogConfig struct {
+	StopUid int `toml:"StopUid"`
+	Sleep float64 `toml:"Sleep"`
+}
+
+type TomlConfig struct {
+	Goivb GoivbConfig `toml:"goivb"`
+	Watchdogs map[string]WatchdogConfig `toml:"watchdog"`
+	IsSet bool
+}
+
+var Config TomlConfig
+
+func init ()  {
+
+	if _, err := os.Stat("/etc/goivb.toml"); err == nil {	  
+	if _, err := toml.DecodeFile("/etc/goivb.toml", &Config); err != nil {
+		glog.Fatalln(err)
+	} else {
+		Config.IsSet = true
+	}
+	}
+
+	if _, err := os.Stat("goivb.toml"); err == nil {
+	if _, err := toml.DecodeFile("goivb.toml", &Config); err != nil {
+		glog.Fatalln(err)
+	} else {
+		Config.IsSet = true
+	}
+	}
+
+	if !Config.IsSet {
+		glog.Fatalln("No Config file loaded")
+	}
+}
+
+
+type GoivbStops gjson.Result
+type GoivbSmi gjson.Result
+
 func GetStops () gjson.Result {
-	resp, err := grequests.Get("http://webservices.ivb.at/smiapi/1.0/Stops", nil)
+	if !Config.IsSet {
+		glog.Fatalln("Goivb Configuration not set")
+	}
+
+	resp, err := grequests.Get(Config.Goivb.StopHost, nil)
 
 	if err != nil {
-		log.Fatalln("Unable to make request: ", err)
+		glog.Fatalln("Unable to make request: ", err)
 	}
 
 	data := resp.String()
 	data = strings.Replace(data, "\\", "", -1)
 
 	if !gjson.Valid(data) {
-		log.Fatalln("invalid json")
+		glog.Fatalln("invalid json")
 	}
 
 	return gjson.Parse(data).Get("#.stop")
 }
 
 func GetSmartinfo (stopUid int) gjson.Result {
-	resp, err := grequests.Post("http://webservices.ivb.at/smiapi/1.0/Passage/?stopUid=" +  strconv.Itoa(stopUid), nil)
+	if !Config.IsSet {
+		glog.Fatalln("Goivb Configuration not set")
+	}
+
+	resp, err := grequests.Post(Config.Goivb.PassageHost + "/?stopUid=" +  strconv.Itoa(stopUid), nil)
 
 	if err != nil {
-		log.Fatalln("Unable to make request: ", err)
+		glog.Fatalln("Unable to make request: ", err)
 	}
 	data := resp.String()
 	data = strings.Replace(data, "\\", "", -1)
 
 	if !gjson.Valid(data) {
-		log.Fatalln("invalid json")
+		glog.Fatalln("invalid json")
 	}
 
 	if (len(data) <= 2) {
-		log.Fatalln("No data received. Wrong StopUid?")
+		glog.Fatalln("No data received. Wrong StopUid?")
 	}
 
 	return gjson.Parse(data)
@@ -117,13 +174,14 @@ func RpiPrint(parser gjson.Result, num int) {
 }
 
 
-func Watchdog(stopUid int, sleep float64) {
+func Watchdog(watchdogId string) {
+	cfg := Config.Watchdogs[watchdogId]
 	clearOut, _ := exec.Command("clear").Output()
 	for true {
-		smi := GetSmartinfo(stopUid)
+		smi := GetSmartinfo(cfg.StopUid)
 		os.Stdout.Write(clearOut)
 		RpiPrint(smi, 6)
-		time.Sleep(time.Duration(sleep) * time.Second)
+		time.Sleep(time.Duration(cfg.Sleep) * time.Second)
 	}
 }
 
